@@ -5,16 +5,24 @@ set -e
 REGISTRY="crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com"
 BACKEND_IMAGE="$REGISTRY/hyajs/jiajiao-backend"
 FRONTEND_IMAGE="$REGISTRY/hyajs/jiajiao-frontend"
+REPO_URL="https://github.com/hyajs/tutor_sharing.git"
+PROJECT_DIR="/root/projects/jiajiao"
 
 TAG=${TAG:-latest}
 NETWORK=jiajiao-net
-PROJECT_DIR="/root/projects/jiajiao"
 
 echo "=== Deployment started at $(date) ==="
 echo "Tag: $TAG"
 
-# Navigate to project directory
+# Create project directory and clone if not exists
+if [ ! -d "$PROJECT_DIR/.git" ]; then
+    echo "Cloning repository..."
+    mkdir -p $PROJECT_DIR
+    git clone $REPO_URL $PROJECT_DIR
+fi
+
 cd $PROJECT_DIR
+git pull origin main
 
 # Create network if not exists
 docker network rm $NETWORK 2>/dev/null || true
@@ -22,8 +30,8 @@ docker network create $NETWORK
 
 # Stop and remove old containers
 echo "Stopping old containers..."
-docker stop jiajiao-nginx jiajiao-frontend jiajiao-backend 2>/dev/null || true
-docker rm jiajiao-nginx jiajiao-frontend jiajiao-backend 2>/dev/null || true
+docker stop jiajiao-nginx jiajiao-frontend jiajiao-backend jiajiao-postgres jiajiao-redis 2>/dev/null || true
+docker rm jiajiao-nginx jiajiao-frontend jiajiao-backend jiajiao-postgres jiajiao-redis 2>/dev/null || true
 
 # Login to ACR
 echo "Logging in to ACR..."
