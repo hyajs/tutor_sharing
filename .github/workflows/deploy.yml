@@ -69,6 +69,12 @@ jobs:
           envs: TAG
           script: |
             export TAG=${{ env.TAG }}
+            export ACR_PASSWORD="${{ secrets.ACR_PASSWORD }}"
+            export ACR_USERNAME="${{ secrets.ACR_USERNAME }}"
+            # Clone repo if not exists, then run deploy
+            if [ ! -d "/root/projects/jiajiao/.git" ]; then
+              mkdir -p /root/projects/jiajiao
+              git clone https://github.com/hyajs/tutor_sharing.git /root/projects/jiajiao
+            fi
             cd /root/projects/jiajiao
-            echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.REGISTRY }} --username ${{ secrets.ACR_USERNAME }} --password-stdin
             bash scripts/deploy.sh
