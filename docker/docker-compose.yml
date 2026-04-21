@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: jiajiao-nginx
+    restart: always
+    ports:
+      - "81:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - jiajiao-net
+    depends_on:
+      - frontend
+      - backend
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: jiajiao-frontend
+    restart: always
+    networks:
+      - jiajiao-net
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: jiajiao-backend
+    restart: always
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql://jiajiao:jiajiao123@postgres:5432/jiajiao
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-change-in-production
+      - JWT_SECRET_KEY=your-jwt-secret-key-change-in-production
+    volumes:
+      - ./data:/app/data
+    networks:
+      - jiajiao-net
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: jiajiao-postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=jiajiao
+      - POSTGRES_PASSWORD=jiajiao123
+      - POSTGRES_DB=jiajiao
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - jiajiao-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: jiajiao-redis
+    restart: always
+    networks:
+      - jiajiao-net
+
+networks:
+  jiajiao-net:
+    driver: bridge
+
+volumes:
+  postgres_data:

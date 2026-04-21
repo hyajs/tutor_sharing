@@ -1,0 +1,4 @@
+node_modules
+crawled_data
+*.pyc
+*.db
