@@ -16,7 +16,7 @@ export default function Register() {
     password: '',
     confirmPassword: '',
   })
-  const [captcha, setCaptcha] = useState({ id: '', image: '' })
+  const [captcha, setCaptcha] = useState({ captcha_id: '', image: '' })
   const [captchaCode, setCaptchaCode] = useState('')
 
   // 获取图形验证码
@@ -64,7 +64,7 @@ export default function Register() {
       email: formData.email,
       password: formData.password,
       captcha_code: captchaCode,
-      captcha_id: captcha.id,
+      captcha_id: captcha.captcha_id,
     })
   }
 

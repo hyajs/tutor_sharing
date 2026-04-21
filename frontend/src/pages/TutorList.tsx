@@ -1,10 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { tutorApi } from '@/api/modules/tutor'
 import { commonApi } from '@/api/modules/common'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Link } from 'react-router-dom'
 import { useSearchStore } from '@/stores/searchStore'
 
 export default function TutorList() {
@@ -25,11 +25,6 @@ export default function TutorList() {
   const { data: subjects } = useQuery({
     queryKey: ['subjects'],
     queryFn: commonApi.getSubjects,
-  })
-
-  const { data: schools } = useQuery({
-    queryKey: ['schools'],
-    queryFn: commonApi.getSchools,
   })
 
   const handleFilterChange = (key: string, value: string | number | undefined) => {
