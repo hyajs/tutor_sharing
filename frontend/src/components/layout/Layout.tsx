@@ -3,11 +3,10 @@ import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/Button'
 import { useQuery } from '@tanstack/react-query'
 import { authApi } from '@/api/modules/auth'
-import { useEffect } from 'react'
 
 export function Layout() {
   const navigate = useNavigate()
-  const { isAuthenticated, user, logout, setUser, setTokens } = useAuthStore()
+  const { isAuthenticated, user, logout, setUser } = useAuthStore()
 
   // 获取用户信息
   useQuery({

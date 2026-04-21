@@ -27,7 +27,7 @@ export default function TutorList() {
     queryFn: commonApi.getSubjects,
   })
 
-  const handleFilterChange = (key: string, value: string | number | undefined) => {
+  const handleFilterChange = (key: string, value: string | number | boolean | undefined) => {
     setFilters({ [key]: value, page: 1 })
   }
 

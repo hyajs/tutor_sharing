@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom'
 
 export default function Home() {
   const navigate = useNavigate()
-  const { setFilters, resetFilters } = useSearchStore()
+  const { setFilters } = useSearchStore()
 
   // 获取教员列表
   const { data: tutorsData, isLoading } = useQuery({
@@ -140,7 +140,7 @@ export default function Home() {
             <div className="text-center py-12">加载中...</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {tutorsData?.items?.map((tutor) => (
+              {tutorsData?.items?.map((tutor: any) => (
                 <Link key={tutor.id} to={`/tutors/${tutor.id}`}>
                   <Card className="hover:shadow-lg transition-shadow">
                     <CardHeader>
