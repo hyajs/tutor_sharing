@@ -1,8 +1,7 @@
-import { Link, Outlet } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/authStore'
-import { useQuery } from '@tanstack/react-query'
 
 export default function UserCenter() {
   const { user, isAuthenticated } = useAuthStore()

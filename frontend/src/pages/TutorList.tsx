@@ -1,5 +1,4 @@
-import { useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { tutorApi } from '@/api/modules/tutor'
 import { commonApi } from '@/api/modules/common'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -9,11 +8,10 @@ import { Link } from 'react-router-dom'
 import { useSearchStore } from '@/stores/searchStore'
 
 export default function TutorList() {
-  const [searchParams] = useSearchParams()
   const { filters, setFilters } = useSearchStore()
 
   // 获取列表数据
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['tutors', filters],
     queryFn: () => tutorApi.list(filters),
   })
@@ -143,7 +141,7 @@ export default function TutorList() {
                   type="checkbox"
                   checked={filters.is_verified || false}
                   onChange={(e) =>
-                    handleFilterChange('is_verified', e.target.checked || undefined)
+                    handleFilterChange('is_verified', e.target.checked ? true : undefined)
                   }
                 />
                 <span className="font-medium">只看已认证教员</span>
@@ -174,7 +172,7 @@ export default function TutorList() {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {data?.items?.map((tutor) => (
+                {data?.items?.map((tutor: any) => (
                   <Link key={tutor.id} to={`/tutors/${tutor.id}`}>
                     <Card className="hover:shadow-lg transition-shadow">
                       <CardContent className="p-6">
