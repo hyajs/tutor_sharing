@@ -9,6 +9,8 @@ env:
   REGISTRY: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com
   BACKEND_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-backend
   FRONTEND_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-frontend
+  POSTGRES_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-postgres
+  REDIS_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-redis
   TAG: ${{ github.sha }}
 
 jobs:
@@ -56,8 +58,32 @@ jobs:
             ${{ env.FRONTEND_IMAGE }}:${{ env.TAG }}
             ${{ env.FRONTEND_IMAGE }}:latest
 
+  build-base-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Alibaba Cloud Container Registry
+        run: |
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.REGISTRY }} --username ${{ secrets.ACR_USERNAME }} --password-stdin
+
+      - name: Pull postgres image
+        run: |
+          docker pull postgres:15-alpine
+          docker tag postgres:15-alpine ${{ env.POSTGRES_IMAGE }}:latest
+          docker push ${{ env.POSTGRES_IMAGE }}:latest
+
+      - name: Pull redis image
+        run: |
+          docker pull redis:7-alpine
+          docker tag redis:7-alpine ${{ env.REDIS_IMAGE }}:latest
+          docker push ${{ env.REDIS_IMAGE }}:latest
+
   deploy:
-    needs: [build-backend, build-frontend]
+    needs: [build-backend, build-frontend, build-base-images]
     runs-on: ubuntu-latest
     steps:
       - name: Create nginx.conf on server
@@ -84,16 +110,8 @@ jobs:
             export REGISTRY=${{ env.REGISTRY }}
             export BACKEND_IMAGE=${{ env.BACKEND_IMAGE }}
             export FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }}
-
-            # Configure Docker mirror (Aliyun) for faster download in China
-            mkdir -p /etc/docker
-            cat > /etc/docker/daemon.json << 'EOF'
-            {
-              "registry-mirrors": ["https://docker.mirrors.ustc.edu.cn"]
-            }
-            EOF
-            systemctl daemon-reload
-            systemctl restart docker
+            export POSTGRES_IMAGE=${{ env.POSTGRES_IMAGE }}
+            export REDIS_IMAGE=${{ env.REDIS_IMAGE }}
 
             echo "${{ secrets.ACR_PASSWORD }}" | docker login $REGISTRY --username ${{ secrets.ACR_USERNAME }} --password-stdin
 
@@ -102,15 +120,16 @@ jobs:
             docker stop jiajiao-nginx jiajiao-frontend jiajiao-backend jiajiao-postgres jiajiao-redis 2>/dev/null || true
             docker rm jiajiao-nginx jiajiao-frontend jiajiao-backend jiajiao-postgres jiajiao-redis 2>/dev/null || true
 
-            echo "Pulling images..."
+            echo "Pulling images from ACR..."
             docker pull $BACKEND_IMAGE:$TAG
             docker pull $FRONTEND_IMAGE:$TAG
+            docker pull $POSTGRES_IMAGE:latest
+            docker pull $REDIS_IMAGE:latest
 
             docker tag $BACKEND_IMAGE:$TAG jiajiao-backend:latest
             docker tag $FRONTEND_IMAGE:$TAG jiajiao-frontend:latest
-
-            docker pull postgres:15-alpine
-            docker pull redis:7-alpine
+            docker tag $POSTGRES_IMAGE:latest postgres:15-alpine
+            docker tag $REDIS_IMAGE:latest redis:7-alpine
 
             echo "Starting PostgreSQL..."
             docker run -d \
