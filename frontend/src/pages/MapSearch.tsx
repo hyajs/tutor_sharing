@@ -4,8 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { mockTutors } from '@/mock/data'
 import { Link } from 'react-router-dom'
 
-// 高德地图 key - 请替换为您的 key
-const AMAP_KEY = 'YOUR_AMAP_KEY'
+const AMAP_KEY = import.meta.env.VITE_AMAP_KEY || ''
 const AMAP_VERSION = '2.0'
 
 declare global {
