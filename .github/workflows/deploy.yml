@@ -116,35 +116,7 @@ jobs:
             sleep 15
 
             echo "Creating users..."
-            docker exec jiajiao-backend python3 -c "
-from passlib.context import CryptContext
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-import os, sys
-sys.path.insert(0, '/app')
-from app.models.user import User
-pwd = CryptContext(schemes=['bcrypt'], deprecated='auto')
-engine = create_engine(os.getenv('DATABASE_URL', 'postgresql://jiajiao:jiajiao123@jiajiao-postgres:5432/jiajiao'))
-db = sessionmaker(bind=engine)()
-try:
-    ph = pwd.hash('Test123456')
-    if not db.query(User).filter(User.email == 'admin@jiajiao.com').first():
-        db.add(User(username='admin', email='admin@jiajiao.com', password_hash=ph, user_type='admin', status=1))
-        print('admin created')
-    if not db.query(User).filter(User.email == 'parent@test.com').first():
-        db.add(User(username='parent', email='parent@test.com', password_hash=ph, user_type='parent', status=1))
-        print('parent created')
-    if not db.query(User).filter(User.email == 'tutor@test.com').first():
-        db.add(User(username='tutor', email='tutor@test.com', password_hash=ph, user_type='tutor', status=1))
-        print('tutor created')
-    db.commit()
-    print('All users ready')
-except Exception as e:
-    print(f'Error: {e}')
-    db.rollback()
-finally:
-    db.close()
-"
+            docker exec jiajiao-backend python3 -c "$(echo ZnJvbSBwYXNzbGliLmNvbnRleHQgaW1wb3J0IENyeXB0Q29udGV4dApmcm9tIHNxbGFsY2hlbXkgaW1wb3J0IGNyZWF0ZV9lbmdpbmUKZnJvbSBzcWxhbGNoZW15Lm9ybSBpbXBvcnQgc2Vzc2lvbm1ha2VyCmltcG9ydCBvcywgc3lzCnN5cy5wYXRoLmluc2VydCgwLCAiL2FwcCIpCmZyb20gYXBwLm1vZGVscy51c2VyIGltcG9ydCBVc2VyCnB3ZCA9IENyeXB0Q29udGV4dChzY2hlbWVzPVsiYmNyeXB0Il0sIGRlcHJlY2F0ZWQ9ImF1dG8iKQplbmdpbmUgPSBjcmVhdGVfZW5naW5lKG9zLmdldGVudigiREFUQUJBU0VfVVJMIiwgInBvc3RncmVzcWw6Ly9qaWFqaWFvOmppYWppYW8xMjNAamlhamlhby1wb3N0Z3Jlczo1NDMyL2ppYWppYW8iKSkKZGIgPSBzZXNzaW9ubWFrZXIoYmluZD1lbmdpbmUpKCkKdHJ5OgogICAgcGggPSBwd2QuaGFzaCgiVGVzdDEyMzQ1NiIpCiAgICBpZiBub3QgZGIucXVlcnkoVXNlcikuZmlsdGVyKFVzZXIuZW1haWwgPT0gImFkbWluQGppYWppYW8uY29tIikuZmlyc3QoKToKICAgICAgICBkYi5hZGQoVXNlcih1c2VybmFtZT0iYWRtaW4iLCBlbWFpbD0iYWRtaW5Aamlhamlhby5jb20iLCBwYXNzd29yZF9oYXNoPXBoLCB1c2VyX3R5cGU9ImFkbWluIiwgc3RhdHVzPTEpKQogICAgICAgIHByaW50KCJhZG1pbiBvayIpCiAgICBpZiBub3QgZGIucXVlcnkoVXNlcikuZmlsdGVyKFVzZXIuZW1haWwgPT0gInBhcmVudEB0ZXN0LmNvbSIpLmZpcnN0KCk6CiAgICAgICAgZGIuYWRkKFVzZXIodXNlcm5hbWU9InBhcmVudCIsIGVtYWlsPSJwYXJlbnRAdGVzdC5jb20iLCBwYXNzd29yZF9oYXNoPXBoLCB1c2VyX3R5cGU9InBhcmVudCIsIHN0YXR1cz0xKSkKICAgICAgICBwcmludCgicGFyZW50IG9rIikKICAgIGlmIG5vdCBkYi5xdWVyeShVc2VyKS5maWx0ZXIoVXNlci5lbWFpbCA9PSAidHV0b3JAdGVzdC5jb20iKS5maXJzdCgpOgogICAgICAgIGRiLmFkZChVc2VyKHVzZXJuYW1lPSJ0dXRvciIsIGVtYWlsPSJ0dXRvckB0ZXN0LmNvbSIsIHBhc3N3b3JkX2hhc2g9cGgsIHVzZXJfdHlwZT0idHV0b3IiLCBzdGF0dXM9MSkpCiAgICAgICAgcHJpbnQoInR1dG9yIG9rIikKICAgIGRiLmNvbW1pdCgpCiAgICBwcmludCgiZG9uZSIpCmV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgIHByaW50KGYiZXJyOiB7ZX0iKQogICAgZGIucm9sbGJhY2soKQpmaW5hbGx5OgogICAgZGIuY2xvc2UoKQo= | base64 -d)"
 
             docker run -d --name jiajiao-frontend --restart=always --network jiajiao-net --expose 80 jiajiao-frontend:latest
 
