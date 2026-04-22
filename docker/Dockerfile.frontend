@@ -7,11 +7,6 @@ WORKDIR /app
 # Accept build args
 ARG VITE_AMAP_KEY
 
-# Create .env file with build args
-RUN if [ -n "$VITE_AMAP_KEY" ]; then \
-      echo "VITE_AMAP_KEY=$VITE_AMAP_KEY" >> /app/frontend/.env; \
-    fi
-
 # Copy package files
 COPY frontend/package*.json ./
 
@@ -20,6 +15,11 @@ RUN npm ci
 
 # Copy source
 COPY frontend/ .
+
+# Create .env file with build args (only if VITE_AMAP_KEY is provided)
+RUN if [ -n "${VITE_AMAP_KEY:-}" ]; then \
+      echo "VITE_AMAP_KEY=${VITE_AMAP_KEY}" > frontend/.env; \
+    fi
 
 # Build
 RUN npm run build
