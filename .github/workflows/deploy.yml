@@ -85,6 +85,16 @@ jobs:
             export BACKEND_IMAGE=${{ env.BACKEND_IMAGE }}
             export FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }}
 
+            # Configure Docker mirror (Aliyun) for faster download in China
+            mkdir -p /etc/docker
+            cat > /etc/docker/daemon.json << 'EOF'
+            {
+              "registry-mirrors": ["https://docker.mirrors.ustc.edu.cn"]
+            }
+            EOF
+            systemctl daemon-reload
+            systemctl restart docker
+
             echo "${{ secrets.ACR_PASSWORD }}" | docker login $REGISTRY --username ${{ secrets.ACR_USERNAME }} --password-stdin
 
             docker network create jiajiao-net 2>/dev/null || true
