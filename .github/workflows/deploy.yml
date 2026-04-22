@@ -11,6 +11,7 @@ env:
   FRONTEND_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-frontend
   POSTGRES_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-postgres
   REDIS_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-redis
+  NGINX_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-nginx
   TAG: ${{ github.sha }}
 
 jobs:
@@ -82,6 +83,12 @@ jobs:
           docker tag redis:7-alpine ${{ env.REDIS_IMAGE }}:latest
           docker push ${{ env.REDIS_IMAGE }}:latest
 
+      - name: Pull nginx image
+        run: |
+          docker pull nginx:alpine
+          docker tag nginx:alpine ${{ env.NGINX_IMAGE }}:latest
+          docker push ${{ env.NGINX_IMAGE }}:latest
+
   deploy:
     needs: [build-backend, build-frontend, build-base-images]
     runs-on: ubuntu-latest
@@ -112,6 +119,7 @@ jobs:
             export FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }}
             export POSTGRES_IMAGE=${{ env.POSTGRES_IMAGE }}
             export REDIS_IMAGE=${{ env.REDIS_IMAGE }}
+            export NGINX_IMAGE=${{ env.NGINX_IMAGE }}
 
             echo "${{ secrets.ACR_PASSWORD }}" | docker login $REGISTRY --username ${{ secrets.ACR_USERNAME }} --password-stdin
 
@@ -125,11 +133,13 @@ jobs:
             docker pull $FRONTEND_IMAGE:$TAG
             docker pull $POSTGRES_IMAGE:latest
             docker pull $REDIS_IMAGE:latest
+            docker pull $NGINX_IMAGE:latest
 
             docker tag $BACKEND_IMAGE:$TAG jiajiao-backend:latest
             docker tag $FRONTEND_IMAGE:$TAG jiajiao-frontend:latest
             docker tag $POSTGRES_IMAGE:latest postgres:15-alpine
             docker tag $REDIS_IMAGE:latest redis:7-alpine
+            docker tag $NGINX_IMAGE:latest nginx:alpine
 
             echo "Starting PostgreSQL..."
             docker run -d \
