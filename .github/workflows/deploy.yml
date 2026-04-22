@@ -101,7 +101,7 @@ jobs:
           key: ${{ secrets.ECS_SSH_KEY }}
           script: |
             mkdir -p /root/projects/jiajiao/docker
-            printf 'upstream backend {\n    server jiajiao-backend:8000;\n}\n\nserver {\n    listen 80;\n    server_name localhost;\n\n    root /usr/share/nginx/html;\n    index index.html;\n\n    location / {\n        try_files $uri $uri/ /index.html;\n    }\n\n    location /api/ {\n        proxy_pass http://backend/api/;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n\n    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {\n        expires 1y;\n        add_header Cache-Control "public, immutable";\n    }\n}\n' > /root/projects/jiajiao/docker/nginx.conf
+            printf 'upstream backend {\n    server jiajiao-backend:8000;\n}\n\nupstream frontend {\n    server jiajiao-frontend:80;\n}\n\nserver {\n    listen 80;\n    server_name localhost;\n\n    # Proxy to frontend container for static files (SPA)\n    location / {\n        proxy_pass http://frontend;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n\n    # Proxy to backend for API\n    location /api/ {\n        proxy_pass http://backend/api/;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n}\n' > /root/projects/jiajiao/docker/nginx.conf
             echo "nginx.conf created"
 
       - name: Deploy containers on server
@@ -176,6 +176,7 @@ jobs:
               --name jiajiao-frontend \
               --restart=always \
               --network jiajiao-net \
+              --expose 80 \
               jiajiao-frontend:latest
 
             echo "Starting Nginx..."
