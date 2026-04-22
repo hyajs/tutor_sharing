@@ -68,39 +68,7 @@ jobs:
           key: ${{ secrets.ECS_SSH_KEY }}
           script: |
             mkdir -p /root/projects/jiajiao/docker
-            cat > /root/projects/jiajiao/docker/nginx.conf << 'NGINX_EOF'
-upstream backend {
-    server jiajiao-backend:8000;
-}
-
-server {
-    listen 80;
-    server_name localhost;
-
-    root /usr/share/nginx/html;
-    index index.html;
-
-    # Frontend routes - SPA fallback
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # API proxy to backend
-    location /api/ {
-        proxy_pass http://backend/api/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Static assets caching
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-}
-NGINX_EOF
+            printf 'upstream backend {\n    server jiajiao-backend:8000;\n}\n\nserver {\n    listen 80;\n    server_name localhost;\n\n    root /usr/share/nginx/html;\n    index index.html;\n\n    location / {\n        try_files $uri $uri/ /index.html;\n    }\n\n    location /api/ {\n        proxy_pass http://backend/api/;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n\n    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {\n        expires 1y;\n        add_header Cache-Control "public, immutable";\n    }\n}\n' > /root/projects/jiajiao/docker/nginx.conf
             echo "nginx.conf created"
 
       - name: Deploy containers on server
@@ -117,30 +85,23 @@ NGINX_EOF
             export BACKEND_IMAGE=${{ env.BACKEND_IMAGE }}
             export FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }}
 
-            # Login to ACR
             echo "${{ secrets.ACR_PASSWORD }}" | docker login $REGISTRY --username ${{ secrets.ACR_USERNAME }} --password-stdin
 
-            # Create network
             docker network create jiajiao-net 2>/dev/null || true
 
-            # Stop and remove old containers
             docker stop jiajiao-nginx jiajiao-frontend jiajiao-backend jiajiao-postgres jiajiao-redis 2>/dev/null || true
             docker rm jiajiao-nginx jiajiao-frontend jiajiao-backend jiajiao-postgres jiajiao-redis 2>/dev/null || true
 
-            # Pull images
             echo "Pulling images..."
             docker pull $BACKEND_IMAGE:$TAG
             docker pull $FRONTEND_IMAGE:$TAG
 
-            # Tag images
             docker tag $BACKEND_IMAGE:$TAG jiajiao-backend:latest
             docker tag $FRONTEND_IMAGE:$TAG jiajiao-frontend:latest
 
-            # Pull postgres and redis
             docker pull postgres:15-alpine
             docker pull redis:7-alpine
 
-            # Run PostgreSQL
             echo "Starting PostgreSQL..."
             docker run -d \
               --name jiajiao-postgres \
@@ -152,7 +113,6 @@ NGINX_EOF
               -v postgres_data:/var/lib/postgresql/data \
               postgres:15-alpine
 
-            # Run Redis
             echo "Starting Redis..."
             docker run -d \
               --name jiajiao-redis \
@@ -160,7 +120,6 @@ NGINX_EOF
               --network jiajiao-net \
               redis:7-alpine
 
-            # Run Backend
             echo "Starting Backend..."
             docker run -d \
               --name jiajiao-backend \
@@ -173,7 +132,6 @@ NGINX_EOF
               -e JWT_SECRET_KEY=your-jwt-secret-key-change-in-production \
               jiajiao-backend:latest
 
-            # Run Frontend
             echo "Starting Frontend..."
             docker run -d \
               --name jiajiao-frontend \
@@ -181,7 +139,6 @@ NGINX_EOF
               --network jiajiao-net \
               jiajiao-frontend:latest
 
-            # Run Nginx
             echo "Starting Nginx..."
             docker run -d \
               --name jiajiao-nginx \
@@ -191,7 +148,6 @@ NGINX_EOF
               -v /root/projects/jiajiao/docker/nginx.conf:/etc/nginx/conf.d/default.conf \
               nginx:alpine
 
-            # Show status
             echo ""
             echo "=== Deployment completed ==="
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
