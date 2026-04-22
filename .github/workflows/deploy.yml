@@ -9,9 +9,6 @@ env:
   REGISTRY: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com
   BACKEND_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-backend
   FRONTEND_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-frontend
-  POSTGRES_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-postgres
-  REDIS_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-redis
-  NGINX_IMAGE: crpi-9nya4llb97sx949i.cn-hangzhou.personal.cr.aliyuncs.com/hyajs/jiajiao-nginx
   TAG: ${{ github.sha }}
 
 jobs:
@@ -19,157 +16,63 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Alibaba Cloud Container Registry
-        run: |
-          echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.REGISTRY }} --username ${{ secrets.ACR_USERNAME }} --password-stdin
-
-      - name: Build and push backend image
+      - name: Log in to ACR
+        run: echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.REGISTRY }} --username ${{ secrets.ACR_USERNAME }} --password-stdin
+      - name: Build and push backend
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./docker/Dockerfile.backend
           push: true
-          tags: |
-            ${{ env.BACKEND_IMAGE }}:${{ env.TAG }}
-            ${{ env.BACKEND_IMAGE }}:latest
+          tags: "${{ env.BACKEND_IMAGE }}:${{ env.TAG }},${{ env.BACKEND_IMAGE }}:latest"
 
   build-frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Alibaba Cloud Container Registry
-        run: |
-          echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.REGISTRY }} --username ${{ secrets.ACR_USERNAME }} --password-stdin
-
-      - name: Build and push frontend image
+      - name: Log in to ACR
+        run: echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.REGISTRY }} --username ${{ secrets.ACR_USERNAME }} --password-stdin
+      - name: Build and push frontend
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./docker/Dockerfile.frontend
           push: true
-          tags: |
-            ${{ env.FRONTEND_IMAGE }}:${{ env.TAG }}
-            ${{ env.FRONTEND_IMAGE }}:latest
+          tags: "${{ env.FRONTEND_IMAGE }}:${{ env.TAG }},${{ env.FRONTEND_IMAGE }}:latest"
 
   build-base-images:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Alibaba Cloud Container Registry
-        run: |
-          echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.REGISTRY }} --username ${{ secrets.ACR_USERNAME }} --password-stdin
-
-      - name: Pull postgres image
+      - name: Log in to ACR
+        run: echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.REGISTRY }} --username ${{ secrets.ACR_USERNAME }} --password-stdin
+      - name: Pull and push postgres
         run: |
           docker pull postgres:15-alpine
-          docker tag postgres:15-alpine ${{ env.POSTGRES_IMAGE }}:latest
-          docker push ${{ env.POSTGRES_IMAGE }}:latest
-
-      - name: Pull redis image
+          docker tag postgres:15-alpine ${{ env.REGISTRY }}/hyajs/jiajiao-postgres:latest
+          docker push ${{ env.REGISTRY }}/hyajs/jiajiao-postgres:latest
+      - name: Pull and push redis
         run: |
           docker pull redis:7-alpine
-          docker tag redis:7-alpine ${{ env.REDIS_IMAGE }}:latest
-          docker push ${{ env.REDIS_IMAGE }}:latest
-
-      - name: Pull nginx image
+          docker tag redis:7-alpine ${{ env.REGISTRY }}/hyajs/jiajiao-redis:latest
+          docker push ${{ env.REGISTRY }}/hyajs/jiajiao-redis:latest
+      - name: Pull and push nginx
         run: |
           docker pull nginx:alpine
-          docker tag nginx:alpine ${{ env.NGINX_IMAGE }}:latest
-          docker push ${{ env.NGINX_IMAGE }}:latest
+          docker tag nginx:alpine ${{ env.REGISTRY }}/hyajs/jiajiao-nginx:latest
+          docker push ${{ env.REGISTRY }}/hyajs/jiajiao-nginx:latest
 
   deploy:
     needs: [build-backend, build-frontend, build-base-images]
     runs-on: ubuntu-latest
     steps:
-      - name: Create nginx.conf and init script on server
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.ECS_HOST }}
-          username: root
-          key: ${{ secrets.ECS_SSH_KEY }}
-          script: |
-            mkdir -p /root/projects/jiajiao/docker /root/projects/jiajiao/scripts
-
-            printf 'upstream backend {
-    server jiajiao-backend:8000;
-}
-
-upstream frontend {
-    server jiajiao-frontend:80;
-}
-
-server {
-    listen 80;
-    server_name localhost;
-
-    location / {
-        proxy_pass http://frontend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location /api/ {
-        proxy_pass http://backend/api/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-' > /root/projects/jiajiao/docker/nginx.conf
-
-            printf '#!/bin/bash
-set -e
-sleep 10
-docker exec jiajiao-backend python3 << "PYEOF"
-import os, sys
-sys.path.insert(0, "/app")
-from passlib.context import CryptContext
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.models.user import User
-
-pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
-engine = create_engine(os.getenv("DATABASE_URL", "postgresql://jiajiao:jiajiao123@jiajiao-postgres:5432/jiajiao"))
-db = sessionmaker(bind=engine)()
-try:
-    ph = pwd.hash("Test123456")
-    if not db.query(User).filter(User.email == "admin@jiajiao.com").first():
-        db.add(User(username="admin", email="admin@jiajiao.com", password_hash=ph, user_type="admin", status=1))
-        print("Created admin")
-    if not db.query(User).filter(User.email == "parent@test.com").first():
-        db.add(User(username="parent", email="parent@test.com", password_hash=ph, user_type="parent", status=1))
-        print("Created parent")
-    if not db.query(User).filter(User.email == "tutor@test.com").first():
-        db.add(User(username="tutor", email="tutor@test.com", password_hash=ph, user_type="tutor", status=1))
-        print("Created tutor")
-    db.commit()
-    print("All users ready!")
-except Exception as e:
-    print(f"Error: {e}")
-    db.rollback()
-finally:
-    db.close()
-PYEOF
-' > /root/projects/jiajiao/scripts/init-users.sh
-            chmod +x /root/projects/jiajiao/scripts/init-users.sh
-            echo "Config files created"
-
-      - name: Deploy containers on server
+      - name: Deploy on server
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.ECS_HOST }}
@@ -178,22 +81,20 @@ PYEOF
           envs: TAG
           script: |
             set -e
-            export TAG=${{ env.TAG }}
-            export REGISTRY=${{ env.REGISTRY }}
-            export BACKEND_IMAGE=${{ env.BACKEND_IMAGE }}
-            export FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }}
-            export POSTGRES_IMAGE=${{ env.POSTGRES_IMAGE }}
-            export REDIS_IMAGE=${{ env.REDIS_IMAGE }}
-            export NGINX_IMAGE=${{ env.NGINX_IMAGE }}
+            TAG=${{ env.TAG }}
+            REGISTRY=${{ env.REGISTRY }}
+            BACKEND_IMAGE=${{ env.BACKEND_IMAGE }}
+            FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }}
+            POSTGRES_IMAGE=${{ env.REGISTRY }}/hyajs/jiajiao-postgres
+            REDIS_IMAGE=${{ env.REGISTRY }}/hyajs/jiajiao-redis
+            NGINX_IMAGE=${{ env.REGISTRY }}/hyajs/jiajiao-nginx
 
             echo "${{ secrets.ACR_PASSWORD }}" | docker login $REGISTRY --username ${{ secrets.ACR_USERNAME }} --password-stdin
-
             docker network create jiajiao-net 2>/dev/null || true
-
             docker stop jiajiao-nginx jiajiao-frontend jiajiao-backend jiajiao-postgres jiajiao-redis 2>/dev/null || true
             docker rm jiajiao-nginx jiajiao-frontend jiajiao-backend jiajiao-postgres jiajiao-redis 2>/dev/null || true
 
-            echo "Pulling images from ACR..."
+            echo "Pulling images..."
             docker pull $BACKEND_IMAGE:$TAG
             docker pull $FRONTEND_IMAGE:$TAG
             docker pull $POSTGRES_IMAGE:latest
@@ -206,56 +107,59 @@ PYEOF
             docker tag $REDIS_IMAGE:latest redis:7-alpine
             docker tag $NGINX_IMAGE:latest nginx:alpine
 
-            echo "Starting PostgreSQL..."
-            docker run -d \
-              --name jiajiao-postgres \
-              --restart=always \
-              --network jiajiao-net \
-              -e POSTGRES_USER=jiajiao \
-              -e POSTGRES_PASSWORD=jiajiao123 \
-              -e POSTGRES_DB=jiajiao \
-              -v postgres_data:/var/lib/postgresql/data \
-              postgres:15-alpine
+            echo "Starting containers..."
+            docker run -d --name jiajiao-postgres --restart=always --network jiajiao-net -e POSTGRES_USER=jiajiao -e POSTGRES_PASSWORD=jiajiao123 -e POSTGRES_DB=jiajiao -v postgres_data:/var/lib/postgresql/data postgres:15-alpine
+            docker run -d --name jiajiao-redis --restart=always --network jiajiao-net redis:7-alpine
+            docker run -d --name jiajiao-backend --restart=always --network jiajiao-net -p 8001:8000 -e DATABASE_URL=postgresql://jiajiao:jiajiao123@jiajiao-postgres:5432/jiajiao -e REDIS_URL=redis://jiajiao-redis:6379/0 -e SECRET_KEY=prod-secret-key -e JWT_SECRET_KEY=prod-jwt-secret jiajiao-backend:latest
 
-            echo "Starting Redis..."
-            docker run -d \
-              --name jiajiao-redis \
-              --restart=always \
-              --network jiajiao-net \
-              redis:7-alpine
+            echo "Waiting for backend to init DB..."
+            sleep 15
 
-            echo "Starting Backend..."
-            docker run -d \
-              --name jiajiao-backend \
-              --restart=always \
-              --network jiajiao-net \
-              -p 8001:8000 \
-              -e DATABASE_URL=postgresql://jiajiao:jiajiao123@jiajiao-postgres:5432/jiajiao \
-              -e REDIS_URL=redis://jiajiao-redis:6379/0 \
-              -e SECRET_KEY=your-secret-key-change-in-production \
-              -e JWT_SECRET_KEY=your-jwt-secret-key-change-in-production \
-              jiajiao-backend:latest
+            echo "Creating users..."
+            docker exec jiajiao-backend python3 -c "
+from passlib.context import CryptContext
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+import os, sys
+sys.path.insert(0, '/app')
+from app.models.user import User
+pwd = CryptContext(schemes=['bcrypt'], deprecated='auto')
+engine = create_engine(os.getenv('DATABASE_URL', 'postgresql://jiajiao:jiajiao123@jiajiao-postgres:5432/jiajiao'))
+db = sessionmaker(bind=engine)()
+try:
+    ph = pwd.hash('Test123456')
+    if not db.query(User).filter(User.email == 'admin@jiajiao.com').first():
+        db.add(User(username='admin', email='admin@jiajiao.com', password_hash=ph, user_type='admin', status=1))
+        print('admin created')
+    if not db.query(User).filter(User.email == 'parent@test.com').first():
+        db.add(User(username='parent', email='parent@test.com', password_hash=ph, user_type='parent', status=1))
+        print('parent created')
+    if not db.query(User).filter(User.email == 'tutor@test.com').first():
+        db.add(User(username='tutor', email='tutor@test.com', password_hash=ph, user_type='tutor', status=1))
+        print('tutor created')
+    db.commit()
+    print('All users ready')
+except Exception as e:
+    print(f'Error: {e}')
+    db.rollback()
+finally:
+    db.close()
+"
 
-            echo "Running init-users script..."
-            bash /root/projects/jiajiao/scripts/init-users.sh || echo "Init users failed (may be ok if tables not ready)"
+            docker run -d --name jiajiao-frontend --restart=always --network jiajiao-net --expose 80 jiajiao-frontend:latest
 
-            echo "Starting Frontend..."
-            docker run -d \
-              --name jiajiao-frontend \
-              --restart=always \
-              --network jiajiao-net \
-              --expose 80 \
-              jiajiao-frontend:latest
+            mkdir -p /root/projects/jiajiao/docker
+            cat > /root/projects/jiajiao/docker/nginx.conf << 'NGINXCONF'
+upstream backend { server jiajiao-backend:8000; }
+upstream frontend { server jiajiao-frontend:80; }
+server {
+    listen 80;
+    location / { proxy_pass http://frontend; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; }
+    location /api/ { proxy_pass http://backend/api/; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; }
+}
+NGINXCONF
 
-            echo "Starting Nginx..."
-            docker run -d \
-              --name jiajiao-nginx \
-              --restart=always \
-              --network jiajiao-net \
-              -p 81:80 \
-              -v /root/projects/jiajiao/docker/nginx.conf:/etc/nginx/conf.d/default.conf \
-              nginx:alpine
+            docker run -d --name jiajiao-nginx --restart=always --network jiajiao-net -p 81:80 -v /root/projects/jiajiao/docker/nginx.conf:/etc/nginx/conf.d/default.conf nginx:alpine
 
-            echo ""
-            echo "=== Deployment completed ==="
+            echo "=== Done ==="
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
