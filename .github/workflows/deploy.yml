@@ -101,7 +101,7 @@ jobs:
           key: ${{ secrets.ECS_SSH_KEY }}
           script: |
             mkdir -p /root/projects/jiajiao/docker
-            printf 'upstream backend {\n    server jiajiao-backend:8000;\n}\n\nupstream frontend {\n    server jiajiao-frontend:80;\n}\n\nserver {\n    listen 80;\n    server_name localhost;\n\n    # Proxy to frontend container for static files (SPA)\n    location / {\n        proxy_pass http://frontend;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n\n    # Proxy to backend for API\n    location /api/ {\n        proxy_pass http://backend/api/;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n}\n' > /root/projects/jiajiao/docker/nginx.conf
+            printf 'upstream backend {\n    server jiajiao-backend:8000;\n}\n\nupstream frontend {\n    server jiajiao-frontend:80;\n}\n\nserver {\n    listen 80;\n    server_name localhost;\n\n    location / {\n        proxy_pass http://frontend;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n\n    location /api/ {\n        proxy_pass http://backend/api/;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n}\n' > /root/projects/jiajiao/docker/nginx.conf
             echo "nginx.conf created"
 
       - name: Deploy containers on server
@@ -159,7 +159,7 @@ jobs:
               --network jiajiao-net \
               redis:7-alpine
 
-            echo "Starting Backend..."
+            echo "Starting Backend (for table creation)..."
             docker run -d \
               --name jiajiao-backend \
               --restart=always \
@@ -170,6 +170,42 @@ jobs:
               -e SECRET_KEY=your-secret-key-change-in-production \
               -e JWT_SECRET_KEY=your-jwt-secret-key-change-in-production \
               jiajiao-backend:latest
+
+            echo "Waiting for backend to initialize tables..."
+            sleep 10
+
+            echo "Creating initial users..."
+            docker exec jiajiao-backend python3 -c "
+import os, sys
+sys.path.insert(0, '/app')
+from passlib.context import CryptContext
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.models.user import User
+
+pwd = CryptContext(schemes=['bcrypt'], deprecated='auto')
+engine = create_engine(os.getenv('DATABASE_URL', 'postgresql://jiajiao:jiajiao123@jiajiao-postgres:5432/jiajiao'))
+db = sessionmaker(bind=engine)()
+
+try:
+    ph = pwd.hash('Test123456')
+    if not db.query(User).filter(User.email == 'admin@jiajiao.com').first():
+        db.add(User(username='admin', email='admin@jiajiao.com', password_hash=ph, user_type='admin', status=1))
+        print('Created admin')
+    if not db.query(User).filter(User.email == 'parent@test.com').first():
+        db.add(User(username='parent', email='parent@test.com', password_hash=ph, user_type='parent', status=1))
+        print('Created parent')
+    if not db.query(User).filter(User.email == 'tutor@test.com').first():
+        db.add(User(username='tutor', email='tutor@test.com', password_hash=ph, user_type='tutor', status=1))
+        print('Created tutor')
+    db.commit()
+    print('All users ready!')
+except Exception as e:
+    print(f'Error: {e}')
+    db.rollback()
+finally:
+    db.close()
+"
 
             echo "Starting Frontend..."
             docker run -d \
