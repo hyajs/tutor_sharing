@@ -1,4 +1,4 @@
-import api from '../client'
+import { apiClient } from '@/stores/mockStore'
 import type { Tutor, SearchFilters } from '@/types'
 
 export const tutorApi = {
@@ -10,13 +10,13 @@ export const tutorApi = {
         params.append(key, String(value))
       }
     })
-    const response = await api.get(`/tutors?${params.toString()}`)
+    const response = await apiClient.get(`/tutors?${params.toString()}`)
     return response.data
   },
 
   // 获取教员详情
   getById: async (id: number): Promise<Tutor> => {
-    const response = await api.get(`/tutors/${id}`)
+    const response = await apiClient.get(`/tutors/${id}`)
     return response.data
   },
 
@@ -41,19 +41,19 @@ export const tutorApi = {
     subject_ids: number[]
     area_ids: number[]
   }): Promise<Tutor> => {
-    const response = await api.post('/tutors/apply', data)
+    const response = await apiClient.post('/tutors/apply', data)
     return response.data
   },
 
   // 获取我的教员资料
   getMyProfile: async (): Promise<Tutor> => {
-    const response = await api.get('/tutors/me/profile')
+    const response = await apiClient.get('/tutors/me/profile')
     return response.data
   },
 
   // 更新教员资料
   updateMyProfile: async (data: Partial<Tutor>): Promise<Tutor> => {
-    const response = await api.put('/tutors/me', data)
+    const response = await apiClient.put('/tutors/me', data)
     return response.data
   },
 }
