@@ -3,10 +3,14 @@ import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/Button'
 import { useQuery } from '@tanstack/react-query'
 import { authApi } from '@/api/modules/auth'
+import * as Dialog from '@radix-ui/react-dialog'
+import { Menu, X } from 'lucide-react'
+import { useState } from 'react'
 
 export function Layout() {
   const navigate = useNavigate()
   const { isAuthenticated, user, logout, setUser } = useAuthStore()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // 获取用户信息
   useQuery({
@@ -38,8 +42,8 @@ export function Layout() {
               <span className="text-xl font-bold text-primary">浙师大北门家教</span>
             </Link>
 
-            {/* Nav */}
-            <nav className="flex items-center gap-6">
+            {/* Desktop Nav */}
+            <nav className="hidden md:flex items-center gap-6">
               <Link to="/tutors" className="text-gray-600 hover:text-primary">
                 教员库
               </Link>
@@ -73,6 +77,58 @@ export function Layout() {
                 </div>
               )}
             </nav>
+
+            {/* Mobile Menu Button */}
+            <Dialog.Root open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <Dialog.Trigger asChild>
+                <button className="md:hidden p-2 text-gray-600">
+                  <Menu size={24} />
+                </button>
+              </Dialog.Trigger>
+              <Dialog.Portal>
+                <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+                <Dialog.Content className="fixed right-0 top-0 h-full w-64 bg-white z-50 p-6 shadow-lg">
+                  <div className="flex justify-between items-center mb-6">
+                    <span className="font-bold text-primary">菜单</span>
+                    <Dialog.Close asChild>
+                      <button className="p-2 text-gray-600">
+                        <X size={24} />
+                      </button>
+                    </Dialog.Close>
+                  </div>
+                  <nav className="flex flex-col gap-4">
+                    <Link to="/tutors" className="text-gray-600 hover:text-primary py-2" onClick={() => setMobileMenuOpen(false)}>
+                      教员库
+                    </Link>
+                    <Link to="/map" className="text-gray-600 hover:text-primary py-2" onClick={() => setMobileMenuOpen(false)}>
+                      地图找老师
+                    </Link>
+                    <Link to="/apply" className="text-gray-600 hover:text-primary py-2" onClick={() => setMobileMenuOpen(false)}>
+                      老师入驻
+                    </Link>
+                    {isAuthenticated ? (
+                      <>
+                        <Link to="/user" className="text-gray-600 hover:text-primary py-2" onClick={() => setMobileMenuOpen(false)}>
+                          {user?.username || '用户中心'}
+                        </Link>
+                        <Button variant="outline" onClick={() => { handleLogout(); setMobileMenuOpen(false) }}>
+                          退出
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
+                          <Button variant="outline" className="w-full">登录</Button>
+                        </Link>
+                        <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
+                          <Button className="w-full">注册</Button>
+                        </Link>
+                      </div>
+                    )}
+                  </nav>
+                </Dialog.Content>
+              </Dialog.Portal>
+            </Dialog.Root>
           </div>
         </div>
       </header>
@@ -85,7 +141,7 @@ export function Layout() {
       {/* Footer */}
       <footer className="bg-gray-800 text-white py-8">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div>
               <h3 className="font-bold mb-4">关于我们</h3>
               <p className="text-gray-400 text-sm">

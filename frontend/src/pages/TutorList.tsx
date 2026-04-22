@@ -6,9 +6,13 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useSearchStore } from '@/stores/searchStore'
+import * as Dialog from '@radix-ui/react-dialog'
+import { Filter, X } from 'lucide-react'
+import { useState } from 'react'
 
 export default function TutorList() {
   const { filters, setFilters } = useSearchStore()
+  const [filterOpen, setFilterOpen] = useState(false)
 
   // 获取列表数据
   const { data, isLoading } = useQuery({
@@ -38,118 +42,149 @@ export default function TutorList() {
     setFilters({ keyword, page: 1 })
   }
 
+  const FilterPanelContent = () => (
+    <>
+      {/* Search */}
+      <form onSubmit={handleSearch} className="mb-6">
+        <Input
+          name="keyword"
+          placeholder="搜索教员/科目"
+          defaultValue={filters.keyword}
+        />
+        <Button type="submit" className="w-full mt-2" size="sm">
+          搜索
+        </Button>
+      </form>
+
+      {/* Area Filter */}
+      <div className="mb-6">
+        <h4 className="font-medium mb-2">服务区域</h4>
+        <select
+          className="w-full border rounded px-3 py-2"
+          value={filters.area_id || ''}
+          onChange={(e) =>
+            handleFilterChange('area_id', e.target.value ? Number(e.target.value) : undefined)
+          }
+        >
+          <option value="">全部区域</option>
+          {areas?.map((area: { id: number; name: string }) => (
+            <option key={area.id} value={area.id}>
+              {area.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Subject Filter */}
+      <div className="mb-6">
+        <h4 className="font-medium mb-2">科目</h4>
+        <select
+          className="w-full border rounded px-3 py-2"
+          value={filters.subject_id || ''}
+          onChange={(e) =>
+            handleFilterChange('subject_id', e.target.value ? Number(e.target.value) : undefined)
+          }
+        >
+          <option value="">全部科目</option>
+          {subjects?.map((subject: { id: number; name: string }) => (
+            <option key={subject.id} value={subject.id}>
+              {subject.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Tutor Type Filter */}
+      <div className="mb-6">
+        <h4 className="font-medium mb-2">教员类型</h4>
+        <select
+          className="w-full border rounded px-3 py-2"
+          value={filters.tutor_type || ''}
+          onChange={(e) =>
+            handleFilterChange('tutor_type', e.target.value || undefined)
+          }
+        >
+          <option value="">全部类型</option>
+          <option value="professional">专业教师</option>
+          <option value="student">大学生</option>
+          <option value="foreign">海归外教</option>
+        </select>
+      </div>
+
+      {/* Gender Filter */}
+      <div className="mb-6">
+        <h4 className="font-medium mb-2">性别</h4>
+        <select
+          className="w-full border rounded px-3 py-2"
+          value={filters.gender || ''}
+          onChange={(e) =>
+            handleFilterChange('gender', e.target.value || undefined)
+          }
+        >
+          <option value="">不限</option>
+          <option value="male">男教员</option>
+          <option value="female">女教员</option>
+        </select>
+      </div>
+
+      {/* Verified Filter */}
+      <div className="mb-6">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={filters.is_verified || false}
+            onChange={(e) =>
+              handleFilterChange('is_verified', e.target.checked ? true : undefined)
+            }
+          />
+          <span className="font-medium">只看已认证教员</span>
+        </label>
+      </div>
+
+      <Button
+        variant="outline"
+        className="w-full"
+        onClick={() => setFilters({ ...filters, page: 1 })}
+      >
+        重置筛选
+      </Button>
+    </>
+  )
+
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Mobile Filter Button */}
+      <div className="mb-4 md:hidden">
+        <Dialog.Root open={filterOpen} onOpenChange={setFilterOpen}>
+          <Dialog.Trigger asChild>
+            <Button variant="outline" className="w-full">
+              <Filter size={16} className="mr-2" />
+              筛选
+            </Button>
+          </Dialog.Trigger>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+            <Dialog.Content className="fixed bottom-0 left-0 right-0 bg-white z-50 p-6 rounded-t-xl max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-lg">筛选条件</h3>
+                <Dialog.Close asChild>
+                  <button className="p-2 text-gray-500">
+                    <X size={24} />
+                  </button>
+                </Dialog.Close>
+              </div>
+              <FilterPanelContent />
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      </div>
+
       <div className="flex gap-8">
-        {/* Sidebar Filters */}
-        <aside className="w-64 flex-shrink-0">
+        {/* Desktop Sidebar */}
+        <aside className="hidden md:block w-64 flex-shrink-0">
           <div className="bg-white rounded-lg shadow p-6 sticky top-4">
             <h3 className="font-bold mb-4">筛选条件</h3>
-
-            {/* Search */}
-            <form onSubmit={handleSearch} className="mb-6">
-              <Input
-                name="keyword"
-                placeholder="搜索教员/科目"
-                defaultValue={filters.keyword}
-              />
-              <Button type="submit" className="w-full mt-2" size="sm">
-                搜索
-              </Button>
-            </form>
-
-            {/* Area Filter */}
-            <div className="mb-6">
-              <h4 className="font-medium mb-2">服务区域</h4>
-              <select
-                className="w-full border rounded px-3 py-2"
-                value={filters.area_id || ''}
-                onChange={(e) =>
-                  handleFilterChange('area_id', e.target.value ? Number(e.target.value) : undefined)
-                }
-              >
-                <option value="">全部区域</option>
-                {areas?.map((area: { id: number; name: string }) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Subject Filter */}
-            <div className="mb-6">
-              <h4 className="font-medium mb-2">科目</h4>
-              <select
-                className="w-full border rounded px-3 py-2"
-                value={filters.subject_id || ''}
-                onChange={(e) =>
-                  handleFilterChange('subject_id', e.target.value ? Number(e.target.value) : undefined)
-                }
-              >
-                <option value="">全部科目</option>
-                {subjects?.map((subject: { id: number; name: string }) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Tutor Type Filter */}
-            <div className="mb-6">
-              <h4 className="font-medium mb-2">教员类型</h4>
-              <select
-                className="w-full border rounded px-3 py-2"
-                value={filters.tutor_type || ''}
-                onChange={(e) =>
-                  handleFilterChange('tutor_type', e.target.value || undefined)
-                }
-              >
-                <option value="">全部类型</option>
-                <option value="professional">专业教师</option>
-                <option value="student">大学生</option>
-                <option value="foreign">海归外教</option>
-              </select>
-            </div>
-
-            {/* Gender Filter */}
-            <div className="mb-6">
-              <h4 className="font-medium mb-2">性别</h4>
-              <select
-                className="w-full border rounded px-3 py-2"
-                value={filters.gender || ''}
-                onChange={(e) =>
-                  handleFilterChange('gender', e.target.value || undefined)
-                }
-              >
-                <option value="">不限</option>
-                <option value="male">男教员</option>
-                <option value="female">女教员</option>
-              </select>
-            </div>
-
-            {/* Verified Filter */}
-            <div className="mb-6">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={filters.is_verified || false}
-                  onChange={(e) =>
-                    handleFilterChange('is_verified', e.target.checked ? true : undefined)
-                  }
-                />
-                <span className="font-medium">只看已认证教员</span>
-              </label>
-            </div>
-
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setFilters({ ...filters, page: 1 })}
-            >
-              重置筛选
-            </Button>
+            <FilterPanelContent />
           </div>
         </aside>
 
@@ -173,23 +208,23 @@ export default function TutorList() {
                       <CardContent className="p-6">
                         <div className="flex gap-4">
                           <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
-                            {tutor.name.charAt(0)}
+                            {tutor.name?.charAt(0) || 'T'}
                           </div>
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <h3 className="text-lg font-bold">{tutor.name}</h3>
+                              <h3 className="text-lg font-bold truncate">{tutor.name}</h3>
                               {tutor.is_verified && (
-                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded flex-shrink-0">
                                   已认证
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-gray-500 truncate">
                               {tutor.school?.name || '未知学校'} · {tutor.major || ''}
                             </p>
                             <div className="flex gap-4 mt-2 text-sm text-gray-600">
                               <span>教龄: {tutor.teaching_age}年</span>
-                              <span>
+                              <span className="whitespace-nowrap">
                                 类型:{' '}
                                 {tutor.tutor_type === 'professional'
                                   ? '专业教师'
@@ -199,7 +234,7 @@ export default function TutorList() {
                               </span>
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right flex-shrink-0">
                             <div className="text-xl font-bold text-primary">
                               {tutor.hourly_rate || tutor.min_hourly_rate || 0}
                             </div>
@@ -211,7 +246,7 @@ export default function TutorList() {
                             {tutor.introduction}
                           </p>
                         )}
-                        <div className="mt-4 flex gap-2">
+                        <div className="mt-4 flex gap-2 flex-wrap">
                           {tutor.subjects?.slice(0, 3).map((s: { id: number; name: string }) => (
                             <span
                               key={s.id}
