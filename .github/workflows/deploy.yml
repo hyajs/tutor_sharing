@@ -30,6 +30,8 @@ jobs:
 
   build-frontend:
     runs-on: ubuntu-latest
+    env:
+      VITE_AMAP_KEY: ${{ secrets.VITE_AMAP_KEY }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Docker Buildx
@@ -43,6 +45,7 @@ jobs:
           file: ./docker/Dockerfile.frontend
           push: true
           tags: "${{ env.FRONTEND_IMAGE }}:${{ env.TAG }},${{ env.FRONTEND_IMAGE }}:latest"
+          build-args: "VITE_AMAP_KEY=${{ env.VITE_AMAP_KEY }}"
 
   build-base-images:
     runs-on: ubuntu-latest
